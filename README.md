@@ -16,7 +16,7 @@
 
 2. Prepare the pre-trained huggingface model of LLaMA2-7B (https://huggingface.co/meta-llama/Llama-2-7b-hf).
 
-3. Download the data (https://huggingface.co/datasets/joyliao7777/LLaRA)
+3. Download the data (https://huggingface.co/datasets/joyliao7777/LLaRA/tree/main/lastfm)
 
 4. Prepare the data and checkpoints:
 
