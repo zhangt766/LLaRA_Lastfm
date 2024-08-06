@@ -110,7 +110,7 @@ if __name__ == '__main__':
     parser.add_argument('--log_dir', default='lastfm_logs', type=str)
     
     parser.add_argument('--rec_size', default=64, type=int)
-    parser.add_argument('--padding_item_id', default=1682, type=int)
+    parser.add_argument('--padding_item_id', default=4606, type=int)
     parser.add_argument('--llm_path', type=str)
     parser.add_argument('--rec_model_path', default='./rec_model/SASRec_ml1m.pt', type=str)
     parser.add_argument('--prompt_path', default='./prompt/artist/', type=str)
