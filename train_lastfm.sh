@@ -1,9 +1,3 @@
-# 1小时等于3600秒
-SLEEP_SECONDS=3600
-
-# 睡眠1小时
-sleep $SLEEP_SECONDS
-
 
 CUDA_VISIBLE_DEVICES=1 python3 main.py \
 --mode train \
@@ -15,7 +9,7 @@ CUDA_VISIBLE_DEVICES=1 python3 main.py \
 --prompt_path ./prompt/artist.txt \
 --rec_embed SASRec \
 --llm_tuning lora \
---llm_path /mnt/bn/data-tns-live-llm/leon/datasets/llama-2-7b-bnb-4bit  \
+--llm_path /workspace/llama/models_hf/Llama-2-7b-hf  \
 --rec_model_path ./rec_model/lastfm.pt \
 --output_dir output/lastfm_unsloth \
 --log_dir lastfm_logs \
