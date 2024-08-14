@@ -1,5 +1,4 @@
-
-CUDA_VISIBLE_DEVICES=1 python3 main.py \
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
 --mode train \
 --batch_size 8 \
 --accumulate_grad_batches 8 \
@@ -9,7 +8,7 @@ CUDA_VISIBLE_DEVICES=1 python3 main.py \
 --prompt_path ./prompt/artist.txt \
 --rec_embed SASRec \
 --llm_tuning lora \
---llm_path /workspace/llama/models_hf/Llama-2-7b-hf  \
+--llm_path /workspace/Llama-2-7b-hf  \
 --rec_model_path ./rec_model/lastfm.pt \
 --output_dir output/lastfm_unsloth \
 --log_dir lastfm_logs \
