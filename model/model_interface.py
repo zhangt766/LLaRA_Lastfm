@@ -40,8 +40,8 @@ Please output the similarity ratings in JSON format. Here is the format:
 
 score_history = """Candidate Listen History:
 {MUSIC_LISTS} \n
-Target Play History:
-{TARGET_ARTIST} \n
+Target Listening History:
+{TARGET_MUSIC} \n
 Please output the similarity ratings in JSON format. The output should only contain the JSON object with similarity scores, without any additional text. Output:"""
 
 reco_instruct = """You are a music recommendation system. Below are some similar users' listening histories and the next artist they are likely to choose. Based on the current user's listen history, your task is to recommend the next artist for this user. Instructions:1. Recommend one artist's name. 2. It **must** be from the candidate pool only.
@@ -97,7 +97,7 @@ class MInterface(pl.LightningModule):
         target_movie = " ".join(input["seq_name"][:input["len_seq"]])
         # print(movie_lists)
         input_prompt = score_instruct + score_history.format_map(
-            {"MUSIC_LISTS": movie_lists, "TARGET_ARTIST": target_movie})
+            {"MUSIC_LISTS": movie_lists, "TARGET_MUSIC": target_movie})
         # with open("/mnt/bn/data-tns-live-llm/leon/LLaRA-similar_seq_as_demo-/tmp.txt","a") as f:
         #     f.write(input_prompt)
         input = self.llama_tokenizer(input_prompt, return_tensors="pt")
