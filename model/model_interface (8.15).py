@@ -6,6 +6,8 @@ from torch.nn import functional as F
 import torch.optim.lr_scheduler as lrs
 
 import pytorch_lightning as pl
+import nltk
+from nltk.tokenize import word_tokenize
 
 from transformers import LlamaForCausalLM, LlamaTokenizer
 import random
@@ -32,27 +34,24 @@ from peft import (
 )
 from transformers import AutoModelForCausalLM, LlamaForCausalLM
 
-score_instruct = """You are a system that recommends music based on listening history. Please evaluate the similarity between each listening history in the candidate list and the single target listening history. Rate the similarity on a scale from 1 to 10, where 1 is not similar at all and 10 is very similar.\n
+score_instruct = """You are a system that recommends music based on a user's listening history. Please evaluate the similarity between each listening history in the candidate list and the single target listening history. Rate the similarity on a scale from 1 to 10, where 1 is not similar at all and 10 is very similar.\n
 Please output the similarity ratings in JSON format. Here is the format:
-{
-    "Listening History 1": score,
-}\n"""
+["Listen History 1": score, "Listen History 2": score, "Listen History 3": score, "Listen History 4": score, "Listen History 5": score, "Listen History 6": score, "Listen History 7": score, "Listen History 8": score, "Listen History 9": score, "Listen History 10": score]\n"""
 
-score_history = """Candidate Listening History:
+score_history = """Candidate Listen History:
 {MUSIC_LISTS} \n
-Target Listening History:
-{TARGET_MUSIC} \n
+Target Play History:
+{TARGET_ARTIST} \n
 Please output the similarity ratings in JSON format. The output should only contain the JSON object with similarity scores, without any additional text. Output:"""
 
-reco_instruct = """You are a system that recommends music based on listening history. Please output the similarity ratings in the format below:
-['Recommendation': music_name] \n
-Here are some similar users' listening history and the next song they are likely to choose, along with the listening history of this user.\n
+reco_instruct = """You are a music recommendation system. Below are some similar users' listening histories and the next artist they are likely to choose. Based on the current user's listening history, your task is to recommend the next artist for this user. Instructions:1. Recommend one artist's name. 2. It **must** be from the candidate pool only.
+Please output the recommendation in the format below:
+['Recommendation': artist_name] \n
 """
 
-reco_prompt_history = """Similar user {i}: He/She has listened to {SimilarHistory}. Based on this, He/She will likely choose {SimilarChoice} to listen to next. \n"""
+reco_prompt_history = """Similar user {i}: He/She has listened to {SimilarHistory}. Based on this, He/She will likely choose {SimilarChoice} to listen next. \n"""
 
-reco_prompt_instruct = """The listening history of this user is: {HistoryHere}. Recommend one song from the following set of titles: {CansHere}. Output:"""
-
+reco_prompt_instruct = """The listening history of this user is: {HistoryHere}. Recommend one artist from the following set of names: {CansHere}. Output:"""
 
 TERMINATOR = "\n"
 
@@ -98,7 +97,7 @@ class MInterface(pl.LightningModule):
         target_movie = " ".join(input["seq_name"][:input["len_seq"]])
         # print(movie_lists)
         input_prompt = score_instruct + score_history.format_map(
-            {"MUSIC_LISTS": movie_lists, "TARGET_MUSIC": target_movie})
+            {"MUSIC_LISTS": movie_lists, "TARGET_ARTIST": target_movie})
         # with open("/mnt/bn/data-tns-live-llm/leon/LLaRA-similar_seq_as_demo-/tmp.txt","a") as f:
         #     f.write(input_prompt)
         input = self.llama_tokenizer(input_prompt, return_tensors="pt")
@@ -251,8 +250,8 @@ class MInterface(pl.LightningModule):
         )
         output_text = self.llama_tokenizer.batch_decode(generate_ids, skip_special_tokens=True,
                                                         clean_up_tokenization_spaces=False)
-        print("output_text: ",output_text)
-        print("---------- \n ")
+        print("output_text: ", output_text)
+        # print("---------- \n ")
         outputs = [text.strip() for text in output_text]
         # print("outputs: ",outputs)
         return outputs
@@ -347,7 +346,7 @@ class MInterface(pl.LightningModule):
     #                 generate = "".join(generate[1:])
     #             else:
     #                 generate = generate[1]
-            
+
     #             generate =generate.split("]")[0].strip()
     #             print("final generate: ",generate)
     #         except:
@@ -375,48 +374,92 @@ class MInterface(pl.LightningModule):
         print("generate_output: ", generate_output)
         print("----------- \n ")
         output = []
-    
+
         for i, generate in enumerate(generate_output):
             try:
                 # 提取 Output: [ 之后的部分
                 generate = generate.split("Output: [")[1].split("]")[0].strip()
-    
+
                 # 如果生成的结果中存在引号，将其去除
                 if generate.startswith("'") and generate.endswith("'"):
                     generate = generate[1:-1]
                 elif generate.startswith('"') and generate.endswith('"'):
                     generate = generate[1:-1]
-    
+
                 print("final generate: ", generate)
-    
+
             except Exception as e:
                 print("generation in bad format:", e)
                 print(generate_output[i])
-    
-            real = batch['correct_answer'][i].split(": ")
+
+            real = batch['correct_answer'][i].split(": ", 1)
+            print(f"Extracted title: {real}")
+            # # print('real type:',type(real))
+            # with open("real.txt", "w") as f:
+            #     f.write(str(real))
+
             if len(real) > 2:
                 real = "".join(real[1:])
             else:
                 real = real[1]
             real = real.split("]")[0].strip()
-    
+
             cans = batch['cans_name'][i]
             output.append((generate, real, cans))
             print("outputs:", output)
-    
+
         return output
-            
+
     def on_test_batch_end(self, outputs, batch, batch_idx, dataloader_idx):
         for generate, real, cans in outputs:
             self.test_content["generate"].append(generate)
             self.test_content["real"].append(real)
             self.test_content["cans"].append(cans)
 
+    # def on_test_epoch_end(self):
+    #     df = DataFrame(self.test_content)
+    #     if not os.path.exists(self.hparams.output_dir):
+    #         os.makedirs(self.hparams.output_dir)
+    #     df.to_csv(op.join(self.hparams.output_dir, 'test.csv'))
+    #     prediction_valid_ratio, hr = self.calculate_hr1(self.test_content)
+    #     metric = hr * prediction_valid_ratio
+    #     self.log('test_prediction_valid', prediction_valid_ratio, on_step=False, on_epoch=True, prog_bar=True,
+    #              batch_size=self.batch_size)
+    #     self.log('test_hr', hr, on_step=False, on_epoch=True, prog_bar=True, batch_size=self.batch_size)
+    #     self.log('metric', metric, on_step=False, on_epoch=True, prog_bar=True, batch_size=self.batch_size)
+
     def on_test_epoch_end(self):
         df = DataFrame(self.test_content)
+
+        # 调用 calculate_hr1 来获取 valid 和 hit 信息
+        valid_list = []
+        hit_list = []
+        for i in range(len(df)):
+            generate = df['generate'][i]
+            real = df['real'][i]
+            cans = df['cans'][i]
+
+            # 使用与 calculate_hr1 相同的逻辑来判断 valid 和 hit
+            generate = generate.strip().lower().strip()
+            real = real.strip().lower().strip()
+            cans = [item.strip().lower().strip() for item in cans]
+            gen_cans_list = [cans_item for cans_item in cans if cans_item in generate]
+
+            valid = 1 if len(gen_cans_list) == 1 else 0
+            hit = 1 if valid and real == gen_cans_list[0] else 0
+
+            valid_list.append(valid)
+            hit_list.append(hit)
+
+        # 添加 valid 和 hit 列到 DataFrame
+        df['valid'] = valid_list
+        df['hit'] = hit_list
+
         if not os.path.exists(self.hparams.output_dir):
             os.makedirs(self.hparams.output_dir)
-        df.to_csv(op.join(self.hparams.output_dir, 'test.csv'))
+        df.to_csv(op.join(self.hparams.output_dir, 'test.csv'), index=False)
+
+        # 使用原有的 calculate_hr1 方法计算整体指标
         prediction_valid_ratio, hr = self.calculate_hr1(self.test_content)
         metric = hr * prediction_valid_ratio
         self.log('test_prediction_valid', prediction_valid_ratio, on_step=False, on_epoch=True, prog_bar=True,
@@ -754,3 +797,43 @@ class MInterface(pl.LightningModule):
         else:
             hr1 = 0
         return valid_ratio, hr1
+
+    # def calculate_hr1(self, eval_content):
+    #     correct_num = 0
+    #     valid_num = 0
+    #     total_num = 0
+
+    #     for i, generate in enumerate(eval_content["generate"]):
+    #         real = eval_content["real"][i]
+    #         cans = eval_content["cans"][i]
+    #         total_num += 1
+
+    #         # 分词处理
+    #         generate = " ".join(word_tokenize(generate.strip().lower()))
+    #         real = " ".join(word_tokenize(real.strip().lower()))
+    #         cans = [" ".join(word_tokenize(item.strip().lower())) for item in cans]
+
+    #         gen_cans_list = []
+    #         for cans_item in cans:
+    #             if cans_item in generate:
+    #                 gen_cans_list.append(cans_item)
+
+    #         if len(gen_cans_list) == 1:
+    #             valid_num += 1
+    #             if real == gen_cans_list[0]:
+    #                 correct_num += 1
+
+    #     valid_ratio = valid_num / total_num
+    #     hr1 = correct_num / valid_num if valid_num > 0 else 0
+    #     return valid_ratio, hr1
+
+
+
+
+
+
+
+
+
+
+
