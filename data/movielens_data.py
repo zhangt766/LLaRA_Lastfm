@@ -1,5 +1,3 @@
-
-
 import torch
 import os.path as op
 import numpy as np
@@ -9,8 +7,9 @@ import torch.utils.data as data
 import pandas as pd
 import random
 
-class Lastfm(data.Dataset):  # 类名从 MovielensData 改为 Lastfm
-    def __init__(self, data_dir=r'data/ref/lastfm',  # 修改默认路径为 LastFM 数据路径
+
+class MovielensData(data.Dataset):
+    def __init__(self, data_dir=r'data/ref/movielens',
                  stage=None,
                  cans_num=10,
                  sep=", ",
@@ -44,6 +43,7 @@ class Lastfm(data.Dataset):  # 类名从 MovielensData 改为 Lastfm
             'most_similar_seq_next': temp['most_similar_seq_next'],
             'most_similar_seq_name': temp['most_similar_seq_name'],
             'most_similar_seq_next_name': temp['most_similar_seq_next_name'],
+
         }
         return sample
 
@@ -63,6 +63,13 @@ class Lastfm(data.Dataset):  # 类名从 MovielensData 改为 Lastfm
             filename = "similar_test_data.df"
         data_path = op.join(self.data_dir, filename)
         self.session_data = self.session_data4frame(data_path, self.item_id2name)
+
+    def get_mv_title(self, s):
+        sub_list = [", The", ", A", ", An"]
+        for sub_s in sub_list:
+            if sub_s in s:
+                return sub_s[2:] + " " + s.replace(sub_s, "")
+        return s
 
     def get_movie_id2name(self):
         movie_id2name = dict()
@@ -89,6 +96,10 @@ class Lastfm(data.Dataset):  # 类名从 MovielensData 改为 Lastfm
         train_data['seq_unpad'] = train_data['seq'].apply(remove_padding)
 
         def seq_to_title(x):
+            return [movie_id2name[x_i] for x_i in x]
+
+
+        def seq_to_title(x):
             titles = []
             for x_i in x:
                 if x_i in movie_id2name:
@@ -98,11 +109,20 @@ class Lastfm(data.Dataset):  # 类名从 MovielensData 改为 Lastfm
                     titles.append("Unknown")
             return titles
         
+        
         train_data['seq_title'] = train_data['seq_unpad'].apply(seq_to_title)
 
         def next_item_title(x):
             return movie_id2name[x]
 
+        # def next_item_title(x):
+        #     if x in movie_id2name:
+        #         return movie_id2name[x]
+        #     else:
+        #         print(f"KeyError: Movie ID {x} not found in movie_id2name.")
+        #         return "Unknown"
+
+               
         train_data['next_item_name'] = train_data['next'].apply(next_item_title)
 
         def get_id_from_tumple(x):
@@ -111,4 +131,6 @@ class Lastfm(data.Dataset):  # 类名从 MovielensData 改为 Lastfm
         def get_id_from_list(x):
             return [i[0] for i in x]
 
+        
         return train_data
+
